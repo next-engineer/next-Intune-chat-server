@@ -5,12 +5,12 @@ springdoc:
     path: /api-docs
 
 server:
-  port: 8080
+  port: 8081
 
 spring:
   application:
     name:
-      intune
+      intune-chat
   datasource:
     url: jdbc:mysql://엔드포인트/intune?useSSL=false&serverTimezone=UTC&characterEncoding=UTF-8
     driver-class-name: com.mysql.cj.jdbc.Driver
