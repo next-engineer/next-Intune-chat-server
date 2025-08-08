@@ -12,10 +12,10 @@ spring:
     name:
       intune-chat
   datasource:
-    url: jdbc:mysql://엔드포인트/intune?useSSL=false&serverTimezone=UTC&characterEncoding=UTF-8
+    url: jdbc:mysql://next-db.c74828wmikhx.ap-northeast-2.rds.amazonaws.com:3306/intune?useSSL=false&serverTimezone=UTC&characterEncoding=UTF-8
     driver-class-name: com.mysql.cj.jdbc.Driver
-    username: 아이디
-    password: 비밀번호
+    username: admin
+    password: :3M]x0D?29CA1t3mu<c~3|!PhCTI
   jpa:
     hibernate:
       ddl-auto: none
