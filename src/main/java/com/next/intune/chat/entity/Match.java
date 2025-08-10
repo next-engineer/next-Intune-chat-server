@@ -9,9 +9,12 @@ import java.time.Instant;
 @Entity
 @Table(
         name = "`matches`",
+        uniqueConstraints = {
+                @UniqueConstraint(name = "uk_matches_requester_responder", columnNames = {"requester_id", "responder_id"})
+        },
         indexes = {
-                @Index(name = "`idx_matches_requester`", columnList = "`requester_id`"),
-                @Index(name = "`idx_matches_response`",  columnList = "`responder_id`")
+                @Index(name = "`idx_matches_requester_created`", columnList = "`requester_id`, `created_at` DESC"),
+                @Index(name = "`idx_matches_responder_created`", columnList = "`responder_id`, `created_at` DESC")
         }
 )
 @Getter
@@ -38,12 +41,12 @@ public class Match {
     @Builder.Default
     @Column(name = "`is_approved`", nullable = false,
             columnDefinition = "BOOLEAN DEFAULT FALSE")
-    private boolean isApproved = false;
+    private boolean approved = false;
 
     @Builder.Default
     @Column(name = "`is_valid`", nullable = false,
             columnDefinition = "BOOLEAN DEFAULT TRUE")
-    private boolean isValid = true;
+    private boolean valid = true;
 
     @Column(name = "`created_at`", nullable = false, updatable = false)
     private Instant createdAt;

@@ -9,7 +9,7 @@ import java.time.Instant;
 @Table(
         name = "`chats_images`",
         indexes = {
-                @Index(name = "`idx_chats_images_chat`", columnList = "`chat_id`")
+                @Index(name = "`idx_chats_images_chat_created`", columnList = "`chat_id`, `created_at`")
         }
 )
 @Getter
@@ -25,7 +25,7 @@ public class ChatImage {
     @EqualsAndHashCode.Include
     private Long chatImageId;
 
-    @ManyToOne(fetch = FetchType.LAZY)
+    @ManyToOne(fetch = FetchType.LAZY, cascade = CascadeType.REMOVE)
     @JoinColumn(name = "`chat_id`", nullable = false)
     private ChatHistory chatHistory;
 

@@ -10,8 +10,8 @@ import java.time.Instant;
 @Table(
         name = "`chats_history`",
         indexes = {
-                @Index(name = "`idx_chats_history_match`", columnList = "`match_id`"),
-                @Index(name = "`idx_chats_history_user`",  columnList = "`user_id`")
+                @Index(name = "`idx_chats_history_match_created`", columnList = "`match_id`, `created_at` DESC"),
+                @Index(name = "`idx_chats_history_user_created`", columnList = "`user_id`, `created_at` DESC")
         }
 )
 @Getter
@@ -27,11 +27,11 @@ public class ChatHistory {
     @EqualsAndHashCode.Include
     private Long chatId;
 
-    @ManyToOne(fetch = FetchType.LAZY)
+    @ManyToOne(fetch = FetchType.LAZY, cascade = CascadeType.REMOVE)
     @JoinColumn(name = "`match_id`", nullable = false)
     private Match match;
 
-    @ManyToOne(fetch = FetchType.LAZY)
+    @ManyToOne(fetch = FetchType.LAZY, cascade = CascadeType.REMOVE)
     @JoinColumn(name = "`user_id`", nullable = false)
     private User user;
 

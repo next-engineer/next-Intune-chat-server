@@ -6,12 +6,7 @@ import lombok.*;
 import java.time.Instant;
 
 @Entity
-@Table(
-        name = "`profile_images`",
-        indexes = {
-                @Index(name = "`idx_profile_images_user`", columnList = "`user_id`")
-        }
-)
+@Table(name = "`profile_images`")
 @Getter
 @Builder
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
@@ -25,10 +20,6 @@ public class ProfileImage {
     @EqualsAndHashCode.Include
     private Long profileImageId;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "`user_id`", nullable = false)
-    private User user;
-
     @Column(name = "`profile_image_name`", nullable = false, length = 255)
     private String profileImageName;
 
@@ -40,3 +31,4 @@ public class ProfileImage {
         this.createdAt = Instant.now();
     }
 }
+

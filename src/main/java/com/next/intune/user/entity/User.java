@@ -6,7 +6,9 @@ import lombok.*;
 import java.time.Instant;
 
 @Entity
-@Table(name = "`users`")
+@Table(
+        name = "`users`"
+)
 @Getter
 @Builder
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
@@ -32,19 +34,17 @@ public class User {
     @Column(name = "`mbti`", nullable = false)
     private String mbti;
 
-    // 0 = USER, 1 = ADMIN
+    @Column(name = "`gender`", nullable = false, columnDefinition = "VARCHAR(1) CHECK (gender IN ('M','F'))")
+    private String gender;
+
     @Builder.Default
     @Column(name = "`authority`", nullable = false,
             columnDefinition = "VARCHAR(1) DEFAULT '0' CHECK (authority IN ('0','1'))")
     private String authority = "0";
 
-    // FK를 직접 관리할 수 있게 필드 추가
-    @Column(name = "`main_profile_image_id`")
-    private Long mainProfileImageId;
-
     @OneToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "`main_profile_image_id`", referencedColumnName = "profile_image_id", insertable = false, updatable = false)
-    private ProfileImage mainProfileImage;
+    @JoinColumn(name = "`profile_image_id`", referencedColumnName = "profile_image_id")
+    private ProfileImage profileImage;
 
     @Column(name = "`address`", nullable = false, columnDefinition = "TEXT")
     private String address;
@@ -55,7 +55,7 @@ public class User {
     @Builder.Default
     @Column(name = "`is_valid`", nullable = false,
             columnDefinition = "BOOLEAN DEFAULT TRUE")
-    private boolean isValid = true;
+    private boolean valid = true;
 
     @Column(name = "`created_at`", nullable = false, updatable = false)
     private Instant createdAt;
