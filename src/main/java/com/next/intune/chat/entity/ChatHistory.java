@@ -9,10 +9,7 @@ import java.time.Instant;
 @Entity
 @Table(
         name = "`chats_history`",
-        indexes = {
-                @Index(name = "`idx_chats_history_match_created`", columnList = "`match_id`, `created_at` DESC"),
-                @Index(name = "`idx_chats_history_user_created`", columnList = "`user_id`, `created_at` DESC")
-        }
+        catalog = "`intune-chat`"
 )
 @Getter
 @Builder
