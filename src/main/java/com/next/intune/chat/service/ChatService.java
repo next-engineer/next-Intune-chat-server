@@ -13,6 +13,7 @@ import com.next.intune.user.repository.UserRepository;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.*;
 import java.util.concurrent.ThreadLocalRandom;
@@ -29,6 +30,7 @@ public class ChatService {
     private final ChatHistoryRepository chatHistoryRepository;
     private final ChatImageRepository chatImageRepository;
 
+    @Transactional
     public void match(HttpServletRequest request) {
         String email = jwtProvider.extractEmailFromRequest(request);
         User requester = userRepository.findByEmailAndValidTrue(email)
