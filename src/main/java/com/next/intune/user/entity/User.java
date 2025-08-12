@@ -7,7 +7,8 @@ import java.time.Instant;
 
 @Entity
 @Table(
-        name = "`users`"
+        name = "`users`",
+        catalog = "`intune-member`"
 )
 @Getter
 @Builder

@@ -6,7 +6,10 @@ import lombok.*;
 import java.time.Instant;
 
 @Entity
-@Table(name = "`profile_images`")
+@Table(
+        name = "`profile_images`",
+        catalog = "`intune-member`"
+)
 @Getter
 @Builder
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
