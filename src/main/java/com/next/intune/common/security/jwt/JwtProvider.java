@@ -96,7 +96,7 @@ public class JwtProvider {
     }
 
     // 5. 요청으로 부터 추출
-    public String extractEmailFromRequest(HttpServletRequest request, String tokenType) {
+    public String extractEmailFromRequest(HttpServletRequest request) {
         String token = extractAccessTokenFromCookie(request);
         if (!StringUtils.hasText(token) || !validateAccessToken(token)) {
             throw new CustomException(ResponseCode.UNAUTHORIZED);
