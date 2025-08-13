@@ -7,41 +7,47 @@ import com.next.intune.chat.repository.ChatImageRepository;
 import com.next.intune.chat.repository.MatchRepository;
 import com.next.intune.common.api.CustomException;
 import com.next.intune.common.api.ResponseCode;
+import com.next.intune.common.helper.MySqlAdvisoryLock;
 import com.next.intune.common.security.jwt.JwtProvider;
 import com.next.intune.user.entity.User;
 import com.next.intune.user.repository.UserRepository;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Duration;
 import java.util.*;
-import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class ChatService {
 
     private final JwtProvider jwtProvider;
+    private final MySqlAdvisoryLock advisoryLock;
     private final MbtiCompatibilityLoader mbtiCompatibilityLoader;
     private final UserRepository userRepository;
     private final MatchRepository matchRepository;
     private final ChatHistoryRepository chatHistoryRepository;
     private final ChatImageRepository chatImageRepository;
 
+    @Transactional
     public void match(HttpServletRequest request) {
+        // 0) 요청자 식별
         String email = jwtProvider.extractEmailFromRequest(request);
         User requester = userRepository.findByEmailAndValidTrue(email)
                 .orElseThrow(() -> new CustomException(ResponseCode.UNAUTHORIZED));
 
         String requesterMbti = requester.getMbti();
-        String requesterGender = requester.getGender();
-        String oppositeGender = "M".equals(requesterGender) ? "F" : "M";
+        String oppositeGender = "M".equals(requester.getGender()) ? "F" : "M";
 
         // 1) MBTI 호환 점수 로딩
         Map<String, Integer> scoresMap = mbtiCompatibilityLoader.getScoresFor(requesterMbti);
 
-        // 2) 점수별 MBTI 묶기 (동점자 그룹), 이후 점수 내림차순 순회용 키 리스트
+        // 2) 점수 → MBTI 그룹화 & 점수 내림차순 키 리스트
         Map<Integer, List<String>> groupedByScore = scoresMap.entrySet().stream()
                 .collect(Collectors.groupingBy(
                         Map.Entry::getValue,
@@ -51,35 +57,43 @@ public class ChatService {
                 .sorted(Comparator.reverseOrder())
                 .toList();
 
-        // 3) 각 점수 그룹을 IN 조건으로 조회해서 후보 합치기
-        List<User> candidates = new ArrayList<>();
+        // 3) 최고점 그룹부터 순회: 그룹 내에서만 "과거 미매칭" 랜덤 1명 시도
         for (Integer score : scoreOrderDesc) {
             List<String> mbtiGroup = groupedByScore.get(score);
             if (mbtiGroup == null || mbtiGroup.isEmpty()) continue;
 
-            List<User> groupUsers = userRepository
-                    .findAllByMbtiInAndGenderAndValidTrue(mbtiGroup, oppositeGender)
-                    .stream()
-                    .filter(u -> !u.getUserId().equals(requester.getUserId())) // 자기 자신 제외
-                    .toList();
+            // 서브쿼리 방식: 이미 requester와 매칭된 responder 제외하고 랜덤 1명 ID만 조회
+            Optional<Long> responderIdOpt = userRepository.pickRandomFreshUserId(
+                    requester.getUserId(), mbtiGroup, oppositeGender, requester.getUserId());
 
-            candidates.addAll(groupUsers);
+            // 이 점수대에 "새로운" 후보가 없으면 다음 점수대로
+            if (responderIdOpt.isEmpty()) continue;
+
+            // ID로 엔티티 로드 (엔티티 변경에 강함 / 컬럼 나열 불필요)
+            User responder = userRepository.findById(responderIdOpt.get())
+                    .orElse(null);
+            // 드물게 사이드 이펙트로 사라졌다면 다음 그룹으로
+            if (responder == null) continue;
+
+            long a = Math.min(requester.getUserId(), responder.getUserId());
+            long b = Math.max(requester.getUserId(), responder.getUserId());
+            String lockKey = "match:%d:%d".formatted(a, b);
+
+            boolean created = advisoryLock.withLock(lockKey, Duration.ofSeconds(2), () -> {
+                if (!matchRepository.existsAnyDirection(a, b)) {
+                    matchRepository.save(Match.builder()
+                            .requester(requester)
+                            .responder(responder)
+                            .build());
+                    return true;
+                }
+                return false;
+            });
+
+            if (created) return; // 성공 시에만 종료
         }
 
-        if (candidates.isEmpty()) {
-            throw new CustomException(ResponseCode.RESOURCE_NOT_FOUND);
-        }
-
-        // 4) 전체 후보 중 랜덤 1명 선택
-        User responder = candidates.get(ThreadLocalRandom.current().nextInt(candidates.size()));
-
-        // 5) 중복 매칭 방지 (유니크키 + 사전 exists 체크)
-        if (!matchRepository.existsByRequesterAndResponder(requester, responder)) {
-            Match match = Match.builder()
-                    .requester(requester)
-                    .responder(responder)
-                    .build();
-            matchRepository.save(match);
-        }
+        // 모든 점수대에서 후보를 못 찾음
+        throw new CustomException(ResponseCode.RESOURCE_NOT_FOUND);
     }
 }
