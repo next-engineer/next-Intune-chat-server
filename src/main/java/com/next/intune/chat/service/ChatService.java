@@ -1,6 +1,7 @@
 package com.next.intune.chat.service;
 
 import com.next.intune.chat.component.MbtiCompatibilityLoader;
+import com.next.intune.chat.dto.response.MatchResponseDto;
 import com.next.intune.chat.entity.Match;
 import com.next.intune.chat.repository.ChatHistoryRepository;
 import com.next.intune.chat.repository.ChatImageRepository;
@@ -95,5 +96,22 @@ public class ChatService {
 
         // 모든 점수대에서 후보를 못 찾음
         throw new CustomException(ResponseCode.RESOURCE_NOT_FOUND);
+    }
+
+    public List<MatchResponseDto> getMatches(HttpServletRequest request) {
+        String email = jwtProvider.extractEmailFromRequest(request);
+        User user = userRepository.findByEmailAndValidTrue(email)
+                .orElseThrow(() -> new CustomException(ResponseCode.UNAUTHORIZED));
+        return matchRepository.findAllValidRowsByUser(user.getUserId()).stream()
+                .map(r -> MatchResponseDto.builder()
+                        .matchId(r.getMatchId())
+                        .requesterId(r.getRequesterId())
+                        .responderId(r.getResponderId())
+                        .approved(r.isApproved())
+                        .valid(r.isValid())
+                        .createdAt(r.getCreatedAt())
+                        .updatedAt(r.getUpdatedAt())
+                        .build())
+                .toList();
     }
 }
