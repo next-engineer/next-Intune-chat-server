@@ -40,3 +40,6 @@ jwt:
   access:
     secret: ser6g5WEQrEfgg4h8sth4IHI5634eeg5se5EWFT234EG7ETRWer4t
     expiration: 1209600000
+
+file:
+  upload-dir: D:/lee/intune/file/chat
