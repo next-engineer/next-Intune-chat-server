@@ -33,6 +33,8 @@ spring:
 logging:
   level:
     org.hibernate.orm.jdbc.bind: trace
+  #  org.springframework.security: DEBUG
+  #  org.springframework.web: DEBUG
 
 jwt:
   access:

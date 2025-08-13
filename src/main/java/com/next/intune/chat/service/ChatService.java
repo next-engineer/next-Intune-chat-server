@@ -1,7 +1,10 @@
 package com.next.intune.chat.service;
 
 import com.next.intune.chat.component.MbtiCompatibilityLoader;
+import com.next.intune.chat.dto.request.SendChatRequestDto;
+import com.next.intune.chat.dto.response.ChatResponseDto;
 import com.next.intune.chat.dto.response.MatchResponseDto;
+import com.next.intune.chat.entity.ChatHistory;
 import com.next.intune.chat.entity.Match;
 import com.next.intune.chat.repository.ChatHistoryRepository;
 import com.next.intune.chat.repository.ChatImageRepository;
@@ -15,8 +18,10 @@ import com.next.intune.user.repository.UserRepository;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
 
 import java.time.Duration;
 import java.util.*;
@@ -30,6 +35,7 @@ public class ChatService {
     private final JwtProvider jwtProvider;
     private final MySqlAdvisoryLock advisoryLock;
     private final MbtiCompatibilityLoader mbtiCompatibilityLoader;
+    private final SimpMessagingTemplate messagingTemplate;
     private final UserRepository userRepository;
     private final MatchRepository matchRepository;
     private final ChatHistoryRepository chatHistoryRepository;
@@ -113,5 +119,48 @@ public class ChatService {
                         .updatedAt(r.getUpdatedAt())
                         .build())
                 .toList();
+    }
+
+    public List<ChatResponseDto> getChats(HttpServletRequest request, Long matchId) {
+        String token = jwtProvider.extractAccessTokenFromHeader(request);
+        if (!StringUtils.hasText(token) || !jwtProvider.validateAccessToken(token)) {
+            throw new CustomException(ResponseCode.UNAUTHORIZED);
+        }
+        return chatHistoryRepository.findAllRowsByChat(matchId).stream()
+                .map(r -> ChatResponseDto.builder()
+                        .chatId(r.getChatId())
+                        .matchId(r.getMatchId())
+                        .userId(r.getUserId())
+                        .chat(r.getChat())
+                        .createdAt(r.getCreatedAt())
+                        .build())
+                .toList();
+    }
+
+    @Transactional
+    public void sendChat(HttpServletRequest request, SendChatRequestDto dto) {
+        String email = jwtProvider.extractEmailFromRequest(request);
+        User user = userRepository.findByEmailAndValidTrue(email)
+                .orElseThrow(() -> new CustomException(ResponseCode.UNAUTHORIZED));
+
+        Match matchRef = Match.builder()
+                .matchId(dto.getMatchId())
+                .build();
+
+        ChatHistory saved = ChatHistory.builder()
+                .match(matchRef)
+                .user(user)
+                .chat(dto.getChat())
+                .build();
+        chatHistoryRepository.save(saved);
+
+        ChatResponseDto payload = ChatResponseDto.builder()
+                .chatId(saved.getChatId())
+                .matchId(saved.getMatch().getMatchId())
+                .userId(user.getUserId())
+                .chat(saved.getChat())
+                .createdAt(saved.getCreatedAt())
+                .build();
+        messagingTemplate.convertAndSend("/topic/match/" + dto.getMatchId(), payload);
     }
 }
