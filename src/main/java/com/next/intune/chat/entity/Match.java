@@ -9,9 +9,6 @@ import java.time.Instant;
 @Entity
 @Table(
         name = "`matches`",
-        uniqueConstraints = {
-                @UniqueConstraint(name = "uk_matches_requester_responder", columnNames = {"requester_id", "responder_id"})
-        },
         catalog = "`intune-chat`"
 )
 @Getter

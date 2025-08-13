@@ -29,7 +29,10 @@ public enum ResponseCode {
     CONFLICT("CF", "요청이 현재 상태와 충돌합니다.", HttpStatus.CONFLICT),
 
     // 500 Internal Server Error
-    INTERNAL_SERVER_ERROR("ISE", "서버에서 문제가 발생했습니다.", HttpStatus.INTERNAL_SERVER_ERROR);
+    INTERNAL_SERVER_ERROR("ISE", "서버에서 문제가 발생했습니다.", HttpStatus.INTERNAL_SERVER_ERROR),
+
+    // 503 Service Unavailable
+    TRY_AGAIN_LATER("TAL", "잠시 후 다시 시도해주세요.", HttpStatus.SERVICE_UNAVAILABLE);
 
     private final String code;
     private final String message;
