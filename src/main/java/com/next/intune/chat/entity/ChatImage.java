@@ -8,9 +8,7 @@ import java.time.Instant;
 @Entity
 @Table(
         name = "`chats_images`",
-        indexes = {
-                @Index(name = "`idx_chats_images_chat_created`", columnList = "`chat_id`, `created_at`")
-        }
+        catalog = "`intune-chat`"
 )
 @Getter
 @Builder

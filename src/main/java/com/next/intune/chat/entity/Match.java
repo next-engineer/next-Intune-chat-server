@@ -9,13 +9,7 @@ import java.time.Instant;
 @Entity
 @Table(
         name = "`matches`",
-        uniqueConstraints = {
-                @UniqueConstraint(name = "uk_matches_requester_responder", columnNames = {"requester_id", "responder_id"})
-        },
-        indexes = {
-                @Index(name = "`idx_matches_requester_created`", columnList = "`requester_id`, `created_at` DESC"),
-                @Index(name = "`idx_matches_responder_created`", columnList = "`responder_id`, `created_at` DESC")
-        }
+        catalog = "`intune-chat`"
 )
 @Getter
 @Builder

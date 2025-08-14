@@ -82,22 +82,18 @@ public class JwtProvider {
         return getAccessClaims(token).getExpiration().getTime();
     }
 
-    // 4. 쿠키에서 토큰 추출
-    public String extractAccessTokenFromCookie(HttpServletRequest request) {
-        Cookie[] cookies = request.getCookies();
-        if (cookies != null) {
-            for (Cookie cookie : cookies) {
-                if ("accessToken".equals(cookie.getName())) {
-                    return cookie.getValue();
-                }
-            }
+    // 4. Authorization 헤더에서 Bearer 토큰 추출
+    public String extractAccessTokenFromHeader(HttpServletRequest request) {
+        String authHeader = request.getHeader("Authorization");
+        if (authHeader != null && authHeader.startsWith("Bearer ")) {
+            return authHeader.substring(7); // "Bearer " 이후의 토큰 부분만 잘라냄
         }
         return null;
     }
 
     // 5. 요청으로 부터 추출
-    public String extractEmailFromRequest(HttpServletRequest request, String tokenType) {
-        String token = extractAccessTokenFromCookie(request);
+    public String extractEmailFromRequest(HttpServletRequest request) {
+        String token = extractAccessTokenFromHeader(request);
         if (!StringUtils.hasText(token) || !validateAccessToken(token)) {
             throw new CustomException(ResponseCode.UNAUTHORIZED);
         }
