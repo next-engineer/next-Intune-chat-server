@@ -3,7 +3,7 @@ name: Deploy to Amazon ECR & EC2
 on:
   push:
     branches:
-      -main
+      - main
 
 env:
   AWS_REGION: ap-northeast-2
@@ -57,33 +57,7 @@ jobs:
           DOCKER_RUN_ARGS: ${{ env.DOCKER_RUN_ARGS }}
         run: |
           set -euo pipefail
-          cat > deploy.sh <<'EOF'
-          #!/usr/bin/env bash
-          set -euo pipefail
-          
-          echo "[1/5] ECR 로그인"
-          aws ecr get-login-password --region "${AWS_REGION}" \
-            | docker login --username AWS --password-stdin "${ECR_REGISTRY}"
-          
-          echo "[2/5] 새 이미지 Pull: ${IMAGE_URI}"
-          docker pull "${IMAGE_URI}"
-          
-          echo "[3/5] 기존 컨테이너 정리: ${CONTAINER_NAME}"
-          # 동일 이름 컨테이너가 있으면 중지/삭제
-          if docker ps -a --format '{{.Names}}' | grep -wq "${CONTAINER_NAME}"; then
-            docker rm -f "${CONTAINER_NAME}" || true
-          fi
-          
-          echo "[4/5] 오래된 이미지 가비지 정리(선택)"
-          docker image prune -f || true
-          
-          echo "[5/5] 새 컨테이너 기동"
-          docker run -d --name "${CONTAINER_NAME}" ${DOCKER_RUN_ARGS} "${IMAGE_URI}"
-          
-          echo "DONE"
-          EOF
-          
-          COMMANDS_JSON=$(jq -Rs . < deploy.sh)
+          COMMANDS_JSON=$(jq -Rs . < scripts/ssm-run.sh)
           echo "commands=[\"bash\",\"-lc\",$COMMANDS_JSON]" >> "$GITHUB_OUTPUT"
 
         - name: Send SSM RunCommand to EC2 (by InstanceIds or by Tag)
