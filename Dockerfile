@@ -1,12 +1,10 @@
-# Use an official OpenJDK runtime as a parent image
-FROM openjdk:17-jdk-slim
-
-# Set the working directory inside the container
+FROM gradle:8.5-jdk17 AS builder
 WORKDIR /app
+COPY . .
+RUN gradle clean bootJar -x test
 
-COPY build/libs/*.jar app.jar
-
+FROM eclipse-temurin:17-jdk-jammy
+WORKDIR /app
+COPY --from=builder /app/build/libs/*.jar app.jar
 EXPOSE 8081
-
-# Run the application
-ENTRYPOINT ["java", "-jar", "app.jar"]
+ENTRYPOINT ["java","-jar","app.jar"]
