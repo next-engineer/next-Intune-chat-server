@@ -33,12 +33,10 @@ jobs:
 
       - id: build-image
         run: |
-          IMAGE_TAG=${{ github.sha }}
-          out=$(bash scripts/build_and_push.sh \
+          bash scripts/build_and_push.sh \
             "${{ steps.login-ecr.outputs.registry }}" \
             "${{ env.ECR_REPOSITORY }}" \
-            "$IMAGE_TAG")
-          echo "$out" >> "$GITHUB_OUTPUT"
+            "${{ github.sha }}"
 
       - id: ssm-deploy
         run: |
