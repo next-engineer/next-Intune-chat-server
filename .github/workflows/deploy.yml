@@ -13,6 +13,7 @@ env:
   DOCKER_RUN_ARGS: >-
     -p 8081:8081
     --restart unless-stopped
+  S3_BUCKET: intune-deploy-bucket
 
 jobs:
   deploy:
@@ -31,6 +32,7 @@ jobs:
       - id: login-ecr
         uses: aws-actions/amazon-ecr-login@62f4f872db3836360b72999f4b87f1ff13310f3a
 
+      # 1) 이미지 빌드 및 푸시
       - id: build-image
         run: |
           bash scripts/build_and_push.sh \
@@ -38,31 +40,39 @@ jobs:
             "${{ env.ECR_REPOSITORY }}" \
             "${{ github.sha }}"
 
+      # 2) 스크립트 업로드
+      - id: upload-script
+        run: |
+          aws s3 cp scripts/deploy_container.sh \
+            "s3://${{ env.S3_BUCKET }}/deploy_container.sh" \
+            --region "${{ env.AWS_REGION }}"
+
+      # 3) SSM으로 EC2에 배포
       - id: ssm-deploy
         run: |
           IMAGE_URI=${{ steps.build-image.outputs.image }}
           TARGETS_JSON=$(jq -n --arg ids "${{ env.EC2_INSTANCE_IDS }}" '
             {Key:"InstanceIds", Values: ($ids | split(","))}
           ' | jq -s .)
-          
-          PARAMS_JSON=$(bash scripts/make_ssm_params.sh \
-            "${{ env.AWS_REGION }}" \
-            "${{ steps.login-ecr.outputs.registry }}" \
-            "$IMAGE_URI" \
-            "${{ env.CONTAINER_NAME }}" \
-            "${{ env.DOCKER_RUN_ARGS }}")
-          
+
           aws ssm send-command \
             --document-name "AWS-RunShellScript" \
             --comment "Deploy new container" \
             --targets "$TARGETS_JSON" \
-            --parameters "$PARAMS_JSON" \
+            --parameters '{
+              "commands": [
+                "aws s3 cp s3://${{ env.S3_BUCKET }}/deploy_container.sh /home/ec2-user/deploy_container.sh --region ap-northeast-2",
+                "chmod +x /home/ec2-user/deploy_container.sh",
+                "bash /home/ec2-user/deploy_container.sh ap-northeast-2 ${{ steps.login-ecr.outputs.registry }} '"$IMAGE_URI"' intune-chat \"-p 8081:8081 --restart unless-stopped\""
+              ]
+            }' \
             --region "${{ env.AWS_REGION }}" \
             --output json > send-command.json
-          
+
           COMMAND_ID=$(jq -r '.Command.CommandId' send-command.json)
           echo "command-id=$COMMAND_ID" >> "$GITHUB_OUTPUT"
 
+      # 4) SSM 결과 대기
       - run: |
           bash scripts/wait_ssm.sh \
             "${{ env.AWS_REGION }}" \
