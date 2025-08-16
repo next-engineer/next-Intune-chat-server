@@ -44,24 +44,22 @@ jobs:
           TARGETS_JSON=$(jq -n --arg ids "${{ env.EC2_INSTANCE_IDS }}" '
             {Key:"InstanceIds", Values: ($ids | split(","))}
           ' | jq -s .)
-
+          
+          PARAMS_JSON=$(bash scripts/make_ssm_params.sh \
+            "${{ env.AWS_REGION }}" \
+            "${{ steps.login-ecr.outputs.registry }}" \
+            "$IMAGE_URI" \
+            "${{ env.CONTAINER_NAME }}" \
+            "${{ env.DOCKER_RUN_ARGS }}")
+          
           aws ssm send-command \
             --document-name "AWS-RunShellScript" \
             --comment "Deploy new container" \
             --targets "$TARGETS_JSON" \
-            --parameters '{
-              "commands": [
-                "bash -c \"bash /home/ec2-user/deploy_container.sh \
-                  ap-northeast-2 \
-                  ${{ steps.login-ecr.outputs.registry }} \
-                  '"$IMAGE_URI"' \
-                  intune-chat \
-                  \\"-p 8081:8081 --restart unless-stopped\\"\""
-              ]
-            }' \
+            --parameters "$PARAMS_JSON" \
             --region "${{ env.AWS_REGION }}" \
             --output json > send-command.json
-
+          
           COMMAND_ID=$(jq -r '.Command.CommandId' send-command.json)
           echo "command-id=$COMMAND_ID" >> "$GITHUB_OUTPUT"
 
