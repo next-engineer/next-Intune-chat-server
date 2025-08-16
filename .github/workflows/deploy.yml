@@ -16,106 +16,50 @@ env:
 
 jobs:
   deploy:
-    name: Build → Push(ECR) → Deploy(EC2 Private)
     runs-on: ubuntu-latest
     environment: production
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@0e613a0980cbf65ed5b322eb7a1e075d28913a83
+      - uses: aws-actions/configure-aws-credentials@0e613a0980cbf65ed5b322eb7a1e075d28913a83
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ env.AWS_REGION }}
 
-      - name: Login to Amazon ECR
-        id: login-ecr
+      - id: login-ecr
         uses: aws-actions/amazon-ecr-login@62f4f872db3836360b72999f4b87f1ff13310f3a
 
-      - name: Build, tag, and push image to Amazon ECR
-        id: build-image
-        env:
-          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-          IMAGE_TAG: ${{ github.sha }}
+      - id: build-image
         run: |
-          set -euo pipefail
-          docker build -t "$ECR_REGISTRY/${{ env.ECR_REPOSITORY }}:$IMAGE_TAG" .
-          docker push "$ECR_REGISTRY/${{ env.ECR_REPOSITORY }}:$IMAGE_TAG"
-          echo "image=$ECR_REGISTRY/${{ env.ECR_REPOSITORY }}:$IMAGE_TAG" >> "$GITHUB_OUTPUT"
+          IMAGE_TAG=${{ github.sha }}
+          out=$(bash scripts/build_and_push.sh \
+            "${{ steps.login-ecr.outputs.registry }}" \
+            "${{ env.ECR_REPOSITORY }}" \
+            "$IMAGE_TAG")
+          echo "$out" >> "$GITHUB_OUTPUT"
 
-      # === 여기부터 Private EC2로 배포(SSM RunCommand) ===
-      - name: Build SSM command script
-        id: ssm-script
-        env:
-          AWS_REGION: ${{ env.AWS_REGION }}
-          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-          IMAGE_URI: ${{ steps.build-image.outputs.image }}
-          CONTAINER_NAME: ${{ env.CONTAINER_NAME }}
-          DOCKER_RUN_ARGS: ${{ env.DOCKER_RUN_ARGS }}
+      - id: ssm-deploy
         run: |
-          set -euo pipefail
-          COMMANDS_JSON=$(jq -Rs . < scripts/ssm-run.sh)
-          echo "commands=[\"bash\",\"-lc\",$COMMANDS_JSON]" >> "$GITHUB_OUTPUT"
+          IMAGE_URI=${{ steps.build-image.outputs.image }}
+          TARGETS_JSON=$(jq -n --arg ids "${{ env.EC2_INSTANCE_IDS }}" '
+            {Key:"InstanceIds", Values: ($ids | split(","))}
+          ' | jq -s .)
 
-        - name: Send SSM RunCommand to EC2 (by InstanceIds or by Tag)
-          id: ssm-deploy
-          run: |
-            set -euo pipefail
-            
-            TARGETS_JSON="[]"
-            if [ -n "${{ env.EC2_INSTANCE_IDS }}" ]; then
-            
-              # InstanceId로 지정
-              IFS=',' read -ra IDS <<< "${{ env.EC2_INSTANCE_IDS }}"
-              ARR=""
-              for id in "${IDS[@]}"; do
-                ARR="${ARR}{\"Key\":\"InstanceIds\",\"Values\":[\"$id\"]},"
-              done
-              TARGETS_JSON="["${ARR%,}"]"
-            elif [ -n "${{ env.EC2_TAG_KEY || '' }}" ] && [ -n "${{ env.EC2_TAG_VALUE || '' }}" ]; then
-              # 태그로 지정
-              TARGETS_JSON=$(cat <<JSON
-            [
-              {"Key":"tag:${{ env.EC2_TAG_KEY }}","Values":["${{ env.EC2_TAG_VALUE }}"]}
-            ]
-            JSON
-            )
-            else
-              echo "EC2 타깃(EC2_INSTANCE_IDS 또는 EC2_TAG_KEY/EC2_TAG_VALUE)을 설정하세요." >&2
-              exit 1
-            fi
-            
-            aws ssm send-command \
-              --document-name "AWS-RunShellScript" \
-              --comment "Pull from ECR and restart container" \
-              --targets "${TARGETS_JSON}" \
-              --parameters '{"commands": '${{ steps.ssm-script.outputs.commands }}'}' \
-              --timeout-seconds 1800 \
-              --max-concurrency "1" \
-              --max-errors "0" \
-              --region "${{ env.AWS_REGION }}" \
-              --output json > send-command.json
-            
-            COMMAND_ID=$(jq -r '.Command.CommandId' send-command.json)
-            echo "command-id=${COMMAND_ID}" >> "$GITHUB_OUTPUT"
+          COMMANDS_JSON=$(jq -Rs . < scripts/deploy_container.sh)
+          aws ssm send-command \
+            --document-name "AWS-RunShellScript" \
+            --comment "Deploy new container" \
+            --targets "$TARGETS_JSON" \
+            --parameters "{\"commands\":[\"bash\",\"-lc\",$COMMANDS_JSON]}" \
+            --region "${{ env.AWS_REGION }}" \
+            --output json > send-command.json
 
-        - name: Wait for SSM command to finish
-          run: |
-            set -euo pipefail
-            COMMAND_ID="${{ steps.ssm-deploy.outputs.command-id }}"
-            echo "Waiting for SSM Command $COMMAND_ID ..."
-            # 간단 폴링
-            for i in $(seq 1 120); do
-              STATUS=$(aws ssm list-commands --command-id "$COMMAND_ID" --query "Commands[0].Status" --output text --region "${{ env.AWS_REGION }}")
-              echo "SSM Status: $STATUS"
-              case "$STATUS" in
-                Success) exit 0 ;;
-                Failed|Cancelled|TimedOut) echo "SSM failed: $STATUS"; exit 1 ;;
-              esac
-              sleep 5
-            done
-            echo "Timeout waiting SSM command"
-            exit 1
+          COMMAND_ID=$(jq -r '.Command.CommandId' send-command.json)
+          echo "command-id=$COMMAND_ID" >> "$GITHUB_OUTPUT"
+
+      - run: |
+          bash scripts/wait_ssm.sh \
+            "${{ env.AWS_REGION }}" \
+            "${{ steps.ssm-deploy.outputs.command-id }}"
