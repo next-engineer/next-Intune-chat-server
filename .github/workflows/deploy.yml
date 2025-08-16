@@ -45,12 +45,20 @@ jobs:
             {Key:"InstanceIds", Values: ($ids | split(","))}
           ' | jq -s .)
 
-          COMMANDS_JSON=$(jq -Rs . < scripts/deploy_container.sh)
           aws ssm send-command \
             --document-name "AWS-RunShellScript" \
             --comment "Deploy new container" \
             --targets "$TARGETS_JSON" \
-            --parameters "{\"commands\":[\"bash\",\"-lc\",$COMMANDS_JSON]}" \
+            --parameters '{
+              "commands": [
+                "bash -c \"bash /home/ec2-user/deploy_container.sh \
+                  ap-northeast-2 \
+                  ${{ steps.login-ecr.outputs.registry }} \
+                  '"$IMAGE_URI"' \
+                  intune-chat \
+                  \\"-p 8081:8081 --restart unless-stopped\\"\""
+              ]
+            }' \
             --region "${{ env.AWS_REGION }}" \
             --output json > send-command.json
 
