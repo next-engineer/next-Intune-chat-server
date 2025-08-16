@@ -82,13 +82,13 @@ jobs:
         echo "DONE"
         EOF
         
-        python3 - <<'PY'
-import json
-script = open('deploy.sh','r',encoding='utf-8').read()
-  
-cmd = ["bash","-lc", script]
-print(f"commands={json.dumps(cmd)}")
-PY >> $GITHUB_OUTPUT
+        python3 - <<'PY' >> $GITHUB_OUTPUT
+  import json
+  script = open('deploy.sh','r',encoding='utf-8').read()
+    
+  cmd = ["bash","-lc", script]
+  print("commands=" + json.dumps(cmd))
+  PY
 
       - name: Send SSM RunCommand to EC2 (by InstanceIds or by Tag)
         id: ssm-deploy
