@@ -12,7 +12,7 @@ spring:
     name:
       intune-chat
   datasource:
-    url: jdbc:mysql://intune-db.c74828wmikhx.ap-northeast-2.rds.amazonaws.com:3306/?useSSL=false&serverTimezone=UTC&characterEncoding=UTF-8
+    url: jdbc:mysql://intune-private-db.c74828wmikhx.ap-northeast-2.rds.amazonaws.com:3306/?useSSL=false&serverTimezone=UTC&characterEncoding=UTF-8
     driver-class-name: com.mysql.cj.jdbc.Driver
     username: admin
     password: intune1234
