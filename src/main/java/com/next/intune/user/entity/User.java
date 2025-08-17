@@ -43,10 +43,6 @@ public class User {
             columnDefinition = "VARCHAR(1) DEFAULT '0' CHECK (authority IN ('0','1'))")
     private String authority = "0";
 
-    @OneToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "`profile_image_id`", referencedColumnName = "profile_image_id")
-    private ProfileImage profileImage;
-
     @Column(name = "`address`", nullable = false, columnDefinition = "TEXT")
     private String address;
 
