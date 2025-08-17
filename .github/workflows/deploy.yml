@@ -79,7 +79,7 @@ jobs:
               "commands": [
                 "aws s3 cp s3://${{ env.S3_BUCKET }}/deploy_container.sh /home/ec2-user/deploy_container.sh --region ap-northeast-2",
                 "chmod +x /home/ec2-user/deploy_container.sh",
-                "bash /home/ec2-user/deploy_container.sh ap-northeast-2 ${{ steps.login-ecr.outputs.registry }} '"$IMAGE_URI"' intune-chat \"-p 8081:8081 --restart unless-stopped\""
+                "bash /home/ec2-user/deploy_container.sh ap-northeast-2 ${{ steps.login-ecr.outputs.registry }} '"$IMAGE_URI"' intune-chat \"${{ env.DOCKER_RUN_ARGS }}\""
               ]
             }' \
             --region "${{ env.AWS_REGION }}" \
