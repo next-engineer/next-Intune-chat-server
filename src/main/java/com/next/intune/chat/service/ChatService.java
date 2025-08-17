@@ -7,7 +7,6 @@ import com.next.intune.chat.dto.response.MatchResponseDto;
 import com.next.intune.chat.entity.ChatHistory;
 import com.next.intune.chat.entity.Match;
 import com.next.intune.chat.repository.ChatHistoryRepository;
-import com.next.intune.chat.repository.ChatImageRepository;
 import com.next.intune.chat.repository.MatchRepository;
 import com.next.intune.common.api.CustomException;
 import com.next.intune.common.api.ResponseCode;
@@ -39,7 +38,6 @@ public class ChatService {
     private final UserRepository userRepository;
     private final MatchRepository matchRepository;
     private final ChatHistoryRepository chatHistoryRepository;
-    private final ChatImageRepository chatImageRepository;
 
     @Transactional
     public void match(HttpServletRequest request) {
