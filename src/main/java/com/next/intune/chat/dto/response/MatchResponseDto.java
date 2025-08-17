@@ -11,8 +11,8 @@ import java.time.Instant;
 @AllArgsConstructor
 public class MatchResponseDto {
     private Long matchId;
-    private Long requesterId;
-    private Long responderId;
+    private String name;
+    private String lastMessage;
     private boolean approved;
     private boolean valid;
     private Instant createdAt;

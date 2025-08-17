@@ -4,8 +4,8 @@ import java.time.Instant;
 
 public interface MatchRow {
     Long getMatchId();
-    Long getRequesterId();
-    Long getResponderId();
+    String getName();
+    String getLastMessage();
     boolean isApproved();
     boolean isValid();
     Instant getCreatedAt();
