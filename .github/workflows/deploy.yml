@@ -13,6 +13,10 @@ env:
   DOCKER_RUN_ARGS: >-
     -p 8081:8081
     --restart unless-stopped
+    --log-driver=awslogs
+    --log-opt awslogs-region=ap-northeast-2
+    --log-opt awslogs-group=intune-chat-logs
+    --log-opt awslogs-stream=$(hostname)
   S3_BUCKET: intune-deploy-bucket
 
 jobs:
@@ -40,14 +44,26 @@ jobs:
             "${{ env.ECR_REPOSITORY }}" \
             "${{ github.sha }}"
 
-      # 2) 스크립트 업로드
+      # 2) 로그 그룹 보장 (30일 보관)
+      - name: Ensure CW log group with 30-day retention
+        run: |
+          aws logs create-log-group \
+            --log-group-name intune-chat-logs \
+            --region ${{ env.AWS_REGION }} 2>/dev/null || true
+          aws logs put-retention-policy \
+            --log-group-name intune-chat-logs \
+            --retention-in-days 30 \
+            --region ${{ env.AWS_REGION }}
+
+
+      # 3) 스크립트 업로드
       - id: upload-script
         run: |
           aws s3 cp scripts/deploy_container.sh \
             "s3://${{ env.S3_BUCKET }}/deploy_container.sh" \
             --region "${{ env.AWS_REGION }}"
 
-      # 3) SSM으로 EC2에 배포
+      # 4) SSM으로 EC2에 배포
       - id: ssm-deploy
         run: |
           IMAGE_URI=${{ steps.build-image.outputs.image }}
@@ -72,7 +88,7 @@ jobs:
           COMMAND_ID=$(jq -r '.Command.CommandId' send-command.json)
           echo "command-id=$COMMAND_ID" >> "$GITHUB_OUTPUT"
 
-      # 4) SSM 결과 대기
+      # 5) SSM 결과 대기
       - run: |
           bash scripts/wait_ssm.sh \
             "${{ env.AWS_REGION }}" \
